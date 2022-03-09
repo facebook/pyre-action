@@ -1,0 +1,121 @@
+name: Pyre Action
+author: Meta
+description: Type check python code
+branding:
+  icon: 'check-circle'
+  color: 'orange'
+
+inputs:
+  repo-directory:
+    description: Path to the python source code you want to type check. If you want to type check the root of your repo, use './'
+    required: true
+  requirements-path:
+    description: Path to requirements file, relative to `repo-directory`, to look for dependencies.
+    required: false
+  pyre-configuration-path:
+    description: Path to folder containing the `.pyre_configuration` you want to run Pyre with
+    required: false
+  infer-types:
+    description: Runs pyre infer in-place to add type annotations. Note that this will change your source code during type checking
+    required: false
+    type: boolean
+    default: false
+  use-nightly:
+    description: Use nightly (unstable) version of Pyre
+    required: false
+    type: boolean
+    default: false
+  version:
+    description: Version of pyre-check to be used. Default is latest.
+    default: 'latest'
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '>=3.6'
+
+    - name: Validate repo-directory path
+      run: |
+        if [ ! -d "${{inputs.repo-directory}}" ] || [ -ne "$(ls -A "${{inputs.repo-directory}}")" ]; then
+          echo "Repository path '${{inputs.repo-directory}}' must exist and cannot be empty"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Install Pyre
+      # https://github.com/actions/runner/issues/1483
+      run: |
+        if ${{inputs.use-nightly != 'false'}}; then
+          pip install pyre-check-nightly
+        elif [ ${{inputs.version}} = "latest" ]; then
+          pip install pyre-check
+        else
+          pip install pyre-check==${{inputs.version}}
+        fi
+      shell: bash
+
+    - name: Install dependencies
+      working-directory: ${{inputs.repo-directory}}
+      if: ${{inputs.requirements-path != ''}}
+      run: |
+        echo ${{inputs.requirements-path}}
+        if ${{inputs.requirements-path != ''}} && [ -f ${{inputs.requirements-path}} ]; then
+          pip install -r ${{inputs.requirements-path}}
+        else
+          echo "Path '${{inputs.repo-directory}}/${{inputs.requirements-path}}' does not exist"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Set up Pyre
+      working-directory: ${{inputs.repo-directory}}
+      run: |
+        if ${{inputs.pyre-configuration-path != ''}} && [ ! -f ${{inputs.pyre-configuration-path}}/.pyre_configuration]; then
+          echo "'${{inputs.pyre-configuration-path}}/${{inputs.requirements-path}}' does not exist"
+          exit 1
+        fi
+        if [ ! -f .pyre_configuration ]; then
+          echo '{
+              "source_directories": [
+                "."
+              ]
+          }' > .pyre_configuration
+        fi
+      shell: bash
+
+    - name: Run Pyre Infer
+      working-directory: ${{inputs.repo-directory}}
+      if: ${{inputs.infer-types == 'true'}}
+      run: |
+        pyre infer
+        pyre infer -i --annotate-from-existing-stubs
+      shell: bash
+
+    - name: Run Pyre
+      run: |
+        if ${{inputs.pyre-configuration-path != ''}}; then
+          cd ${{inputs.pyre-configuration-path}}
+          pyre --source-directory ${{inputs.repo-directory}} --output=sarif check > sarif.json
+        else
+          cd ${{inputs.repo-directory}}
+          pyre --output=sarif check > sarif.json
+        fi
+      shell: bash
+
+    - name: Saving results in SARIF
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: SARIF Results
+        path: sarif.json
+        if-no-files-found: ignore
+
+    - name: Upload SARIF Results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v1
+      with:
+        sarif_file: sarif.json
