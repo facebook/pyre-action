@@ -12,11 +12,6 @@ inputs:
   requirements-path:
     description: Path to requirements file, relative to `repo-directory`, to look for dependencies.
     required: false
-  infer-types:
-    description: Runs pyre infer in-place to add type annotations. Note that this will change your source code during type checking
-    required: false
-    type: boolean
-    default: false
   use-nightly:
     description: Use nightly (unstable) version of Pyre
     required: false
