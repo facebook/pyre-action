@@ -87,14 +87,6 @@ runs:
         fi
       shell: bash
 
-    - name: Run Pyre Infer
-      working-directory: ${{inputs.repo-directory}}
-      if: ${{inputs.infer-types == 'true'}}
-      run: |
-        pyre infer
-        pyre infer -i --annotate-from-existing-stubs
-      shell: bash
-
     - name: Run Pyre
       run: |
         if ${{inputs.pyre-configuration-path != ''}}; then
