@@ -7,13 +7,10 @@ branding:
 
 inputs:
   repo-directory:
-    description: Path to the python source code you want to type check. If you want to type check the root of your repo, use './'
+    description: Path to the python source code you want to type check. If you want to type check the root of your repo, use './'. A .pyre_configuration file should exist here, if not, a default configuration will be used.
     required: true
   requirements-path:
     description: Path to requirements file, relative to `repo-directory`, to look for dependencies.
-    required: false
-  pyre-configuration-path:
-    description: Path to folder containing the `.pyre_configuration` you want to run Pyre with
     required: false
   infer-types:
     description: Runs pyre infer in-place to add type annotations. Note that this will change your source code during type checking
@@ -74,10 +71,6 @@ runs:
     - name: Set up Pyre
       working-directory: ${{inputs.repo-directory}}
       run: |
-        if ${{inputs.pyre-configuration-path != ''}} && [ ! -f ${{inputs.pyre-configuration-path}}/.pyre_configuration]; then
-          echo "'${{inputs.pyre-configuration-path}}/${{inputs.requirements-path}}' does not exist"
-          exit 1
-        fi
         if [ ! -f .pyre_configuration ]; then
           echo '{
               "source_directories": [
@@ -89,13 +82,8 @@ runs:
 
     - name: Run Pyre
       run: |
-        if ${{inputs.pyre-configuration-path != ''}}; then
-          cd ${{inputs.pyre-configuration-path}}
-          pyre --source-directory ${{inputs.repo-directory}} --output=sarif check > sarif.json
-        else
-          cd ${{inputs.repo-directory}}
-          pyre --output=sarif check > sarif.json
-        fi
+        cd ${{inputs.repo-directory}}
+        pyre --output=sarif check > sarif.json
       shell: bash
 
     - name: Saving results in SARIF
@@ -103,11 +91,12 @@ runs:
       uses: actions/upload-artifact@v2
       with:
         name: SARIF Results
-        path: sarif.json
+        path: ${{inputs.repo-directory}}/sarif.json
         if-no-files-found: ignore
 
     - name: Upload SARIF Results
       if: always()
       uses: github/codeql-action/upload-sarif@v1
       with:
-        sarif_file: sarif.json
+        sarif_file: ${{inputs.repo-directory}}/sarif.json
+
