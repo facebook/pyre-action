@@ -78,7 +78,7 @@ runs:
     - name: Run Pyre
       run: |
         cd ${{inputs.repo-directory}}
-        pyre --output=sarif check > sarif.json
+        pyre --noninteractive --output=sarif check > sarif.json
       shell: bash
 
     - name: Saving results in SARIF
