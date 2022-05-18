@@ -19,7 +19,7 @@ inputs:
     default: false
   version:
     description: Version of pyre-check to be used. Default is latest.
-    default: 'latest'
+    default: latest
     required: false
 
 runs:
@@ -31,37 +31,46 @@ runs:
         python-version: '>=3.6'
 
     - name: Validate repo-directory path
+      if: ${{inputs.repo-directory != ''}}
       run: |
-        if [ ! -d "${{inputs.repo-directory}}" ] || [ -ne "$(ls -A "${{inputs.repo-directory}}")" ]; then
-          echo "Repository path '${{inputs.repo-directory}}' must exist and cannot be empty"
+        if [ ! -d "$REPO_DIR" ] || [ -ne "$(ls -A "$REPO_DIR")" ]; then
+          echo "Repository path $REPO_DIR must exist and cannot be empty"
           exit 1
         fi
       shell: bash
+      env:
+        # https://github.com/actions/runner/issues/665
+        REPO_DIR: ${{inputs.repo-directory}}
 
     - name: Install Pyre
       # https://github.com/actions/runner/issues/1483
       run: |
-        if ${{inputs.use-nightly != 'false'}}; then
+        if [ "$USE_NIGHTLY" != 'false' ]; then
           pip install pyre-check-nightly
-        elif [ ${{inputs.version}} = "latest" ]; then
+        elif [ "$VERSION" = "latest" ]; then
           pip install pyre-check
         else
-          pip install pyre-check==${{inputs.version}}
+          pip install pyre-check=="$VERSION"
         fi
       shell: bash
+      env:
+        VERSION: ${{inputs.version}}
+        USE_NIGHTLY: ${{inputs.use-nightly}}
 
     - name: Install dependencies
       working-directory: ${{inputs.repo-directory}}
       if: ${{inputs.requirements-path != ''}}
       run: |
-        echo ${{inputs.requirements-path}}
-        if ${{inputs.requirements-path != ''}} && [ -f ${{inputs.requirements-path}} ]; then
-          pip install -r ${{inputs.requirements-path}}
+        if [ "$REQUIREMENTS_PATH" != '' ] && [ -f "$REQUIREMENTS_PATH" ]; then
+          pip install -r "$REQUIREMENTS_PATH"
         else
-          echo "Path '${{inputs.repo-directory}}/${{inputs.requirements-path}}' does not exist"
+          echo "Path $REPO_DIR/$REQUIREMENTS_PATH does not exist"
           exit 1
         fi
       shell: bash
+      env:
+        REQUIREMENTS_PATH: ${{inputs.requirements-path}}
+        REPO_DIR: ${{inputs.repo-directory}}
 
     - name: Set up Pyre
       working-directory: ${{inputs.repo-directory}}
@@ -77,9 +86,11 @@ runs:
 
     - name: Run Pyre
       run: |
-        cd ${{inputs.repo-directory}}
+        cd "$REPO_DIR" || exit 1
         pyre --noninteractive --output=sarif check > sarif.json
       shell: bash
+      env:
+        REPO_DIR: ${{inputs.repo-directory}}
 
     - name: Saving results in SARIF
       if: always()
@@ -91,7 +102,6 @@ runs:
 
     - name: Upload SARIF Results
       if: always()
-      uses: github/codeql-action/upload-sarif@v1
+      uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: ${{inputs.repo-directory}}/sarif.json
-
