@@ -21,6 +21,15 @@ inputs:
     description: Version of pyre-check to be used. Default is latest.
     default: latest
     required: false
+  output:
+    description: Set pyre-check output argument. Default is text.
+    default: text
+    required: false
+    type: choice
+    options:
+      - text
+      - json
+      - sarif
 
 runs:
   using: "composite"
@@ -85,6 +94,25 @@ runs:
       shell: bash
 
     - name: Run Pyre
+      if: ${{inputs.output == 'text'}}
+      run: |
+        cd "$REPO_DIR" || exit 1
+        pyre --output=text check
+      shell: bash
+      env:
+        REPO_DIR: ${{inputs.repo-directory}}
+
+    - name: Run Pyre
+      if: ${{inputs.output == 'json'}}
+      run: |
+        cd "$REPO_DIR" || exit 1
+        pyre --noninteractive --output=json check > pyre.json
+      shell: bash
+      env:
+        REPO_DIR: ${{inputs.repo-directory}}
+
+    - name: Run Pyre
+      if: ${{inputs.output == 'sarif'}}
       run: |
         cd "$REPO_DIR" || exit 1
         pyre --noninteractive --output=sarif check > sarif.json
@@ -92,8 +120,16 @@ runs:
       env:
         REPO_DIR: ${{inputs.repo-directory}}
 
+    - name: Saving results in JSON
+      if: ${{inputs.output == 'json'}}
+      uses: actions/upload-artifact@v2
+      with:
+        name: JSON Results
+        path: ${{inputs.repo-directory}}/pyre.json
+        if-no-files-found: ignore
+
     - name: Saving results in SARIF
-      if: always()
+      if: ${{inputs.output == 'sarif'}}
       uses: actions/upload-artifact@v2
       with:
         name: SARIF Results
@@ -101,7 +137,7 @@ runs:
         if-no-files-found: ignore
 
     - name: Upload SARIF Results
-      if: always()
+      if: ${{inputs.output == 'sarif'}}
       uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: ${{inputs.repo-directory}}/sarif.json
