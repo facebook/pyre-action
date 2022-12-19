@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run Pyre Action
-        uses: facebook/pyre-action
+        uses: facebook/pyre-action@v0.0.1
         with:
             repo-directory: './'
             requirements-path: 'requirements.txt'
