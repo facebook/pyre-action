@@ -22,7 +22,8 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run Pyre Action
-        uses: facebook/pyre-action@v0.0.1
+        # update with the desired version of the action (e.g. `facebook/pyre-action@v0.0.1`)
+        uses: facebook/pyre-action
         with:
             repo-directory: './'
             requirements-path: 'requirements.txt'
