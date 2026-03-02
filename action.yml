@@ -94,7 +94,7 @@ runs:
 
     - name: Saving results in SARIF
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: SARIF Results
         path: ${{inputs.repo-directory}}/sarif.json
